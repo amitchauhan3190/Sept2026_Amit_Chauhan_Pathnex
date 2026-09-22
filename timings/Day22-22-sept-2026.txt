@@ -1,0 +1,3 @@
+# 2 hour - Went though youtube session on Ansible
+# 1 Hour - coding
+# 2 Hours - Read Ansible PDF from shared drive
