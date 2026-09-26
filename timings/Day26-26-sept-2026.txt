@@ -1,0 +1,3 @@
+# 2 hour - Went though youtube session on ELK
+# 1 Hour - coding
+# 2 Hours - Read Datadog ELK from shared drive
