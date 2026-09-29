@@ -1,0 +1,3 @@
+# 2 hour - Went though youtube session on Kafka
+# 1 Hour - coding
+# 2 Hours - Read Datadog Kafka from shared drive
