@@ -1,143 +1,90 @@
-## 🔹 Ansible — Create Docker Containers for Multiple Applications
-
-```yaml
-- name: Setup Docker Containers for Multiple Apps
+- name: Install packages for Pathnex
   hosts: all
   become: yes
+
   tasks:
-    - name: Pull Web App Image
-      docker_image:
-        name: my-web-app
-        source: pull
+    - name: Install tools
+      yum:
+        name:
+          - git
+          - wget
+        state: present
 
-    - name: Pull Database App Image
-      docker_image:
-        name: my-database-app
-        source: pull
+--------------------------------------------------------------------------
 
-    - name: Run Web App Container
-      docker_container:
-        name: web-app
-        image: my-web-app
-        state: started
-        published_ports:
-          - "8080:80"
-    
-    - name: Run Database App Container
-      docker_container:
-        name: database-app
-        image: my-database-app
-        state: started
-        published_ports:
-          - "3306:3306"
-🔹 Terraform — VPC with Private and Public Subnets
-resource "aws_vpc" "main" {
-  cidr_block = "10.0.0.0/16"
+provider "aws" {
+  region = "us-east-1"
 }
 
-resource "aws_subnet" "public" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = "us-east-1a"
-  map_public_ip_on_launch = true
+resource "aws_key_pair" "PathnexKey" {
+  key_name   = "PathnexKey"
+  public_key = "ssh-rsa AAAA...."
 }
 
-resource "aws_subnet" "private" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.2.0/24"
-  availability_zone = "us-east-1b"
+resource "aws_instance" "PathnexEC2" {
+  ami           = "ami-0abcd1234abcd1234"
+  instance_type = "c6i.8xlarge"
+  key_name      = aws_key_pair.PathnexKey.key_name
+
+  tags = {
+    Name = "Pathnex-EC2"
+  }
 }
-🔹 Kubernetes — Deploying StatefulSet
-apiVersion: apps/v1
-kind: StatefulSet
+
+---------------------------------------------------------------------
+
+apiVersion: v1
+kind: Service
 metadata:
-  name: pathnex-db
+  name: pathnex-service
 spec:
-  serviceName: "pathnex-db"
-  replicas: 3
   selector:
-    matchLabels:
-      app: pathnex-db
-  template:
-    metadata:
-      labels:
-        app: pathnex-db
-    spec:
-      containers:
-        - name: db
-          image: mysql:5.7
-          volumeMounts:
-            - mountPath: /var/lib/mysql
-              name: mysql-storage
-  volumeClaimTemplates:
-    - metadata:
-        name: mysql-storage
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: 1Gi
-🔹 Jenkinsfile — Build and Deploy to Kubernetes
+    app: pathnex-app
+  ports:
+    - port: 80
+      targetPort: 80
+
+------------------------------------------------------------------------
+
 pipeline {
     agent any
-    environment {
-        IMAGE_NAME = 'pathnex-web-app'
-    }
     stages {
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    docker.build("${env.IMAGE_NAME}")
+        stage('Parallel Tasks') {
+            parallel {
+                stage('Build') {
+                    steps {
+                        sh 'mvn clean compile'
+                    }
                 }
-            }
-        }
-        stage('Push Docker Image') {
-            steps {
-                script {
-                    docker.withRegistry('https://docker.io', 'docker-credentials') {
-                        docker.image("${env.IMAGE_NAME}").push('latest')
+                stage('Test') {
+                    steps {
+                        sh 'mvn test'
                     }
                 }
             }
         }
-        stage('Deploy to Kubernetes') {
-            steps {
-                script {
-                    sh 'kubectl apply -f deployment.yaml'
-                }
-            }
-        }
     }
 }
-🔹 GitLab CI/CD — Build, Push, and Deploy
+
+## 🔹 GitLab CI — Parallel Jobs
+You will learn how to **run parallel jobs in GitLab CI**.
+
 stages:
-  - build
-  - push
-  - deploy
+  - build-test
 
-build:
-  stage: build
+maven-build:
+  stage: build-test
+  image: maven:3.8.1-jdk-17
   script:
-    - docker build -t pathnex-web-app .
+    - git clone https://github.com/Pathnex/sample-java-app.git
+    - cd sample-java-app
+    - mvn clean compile
+  parallel: 1
 
-push:
-  stage: push
+maven-test:
+  stage: build-test
+  image: maven:3.8.1-jdk-17
   script:
-    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD"
-    - docker push pathnex-web-app
-
-deploy:
-  stage: deploy
-  script:
-    - kubectl apply -f kubernetes/deployment.yaml
-
-
-🔹 Docker
-# Working Directory & COPY
-FROM ubuntu:22.04
-WORKDIR /opt/pathnex/devops-project
-COPY . /opt/pathnex/devops-project/
-CMD ["ls", "-l", "/opt/pathnex/devops-project"]
-
-# Real Path
-/opt/pathnex/devops-project
+    - cd sample-java-app
+    - mvn test
+  parallel: 1
