@@ -1,0 +1,2 @@
+# 4 hour - Went though youtube session on ELK, Promethus/Grafana & AWS interview Questions read PDF 
+# 1 Hour - coding
